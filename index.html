@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CifraChain — Criptografia em cadeia no navegador</title>
+<meta name="description" content="Encripte e decripte textos e arquivos com cadeias de cifras diretamente no navegador.">
+<meta name="theme-color" content="#0b0f14">
+<link rel="icon" href="./favicon.svg" type="image/svg+xml">
+<style>
+/* ===== Tema ===== */
+:root{--bg:#0b0f14;--panel:#121922;--panel2:#18212d;--line:#243142;--fg:#e6edf3;--mut:#8b9bb0;--acc:#2ee6a6;--acc2:#1fb5ff;--err:#ff5c7a;--warn:#ffc857;--r:10px;--mono:ui-monospace,"JetBrains Mono",Consolas,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(circle at 20% -10%,#12302a 0,transparent 40%),var(--bg);color:var(--fg);font:15px/1.5 system-ui,"Segoe UI",sans-serif;min-height:100vh}
+header{display:flex;align-items:center;gap:14px;padding:18px 24px;border-bottom:1px solid var(--line)}
+header h1{margin:0;font:700 20px var(--mono);letter-spacing:-.5px}
+header h1 span{color:var(--acc)}
+header small{color:var(--mut)}
+nav{display:flex;gap:4px;padding:0 24px;border-bottom:1px solid var(--line);overflow-x:auto}
+nav button{background:none;border:0;color:var(--mut);padding:12px 16px;font:600 14px system-ui,"Segoe UI",sans-serif;cursor:pointer;border-bottom:2px solid transparent}
+nav button.on{color:var(--acc);border-color:var(--acc)}
+main{max-width:1150px;margin:0 auto;padding:22px}
+.tab{display:none}.tab.on{display:block}
+.grid{display:grid;grid-template-columns:380px 1fr;gap:18px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:16px}
+.card h2{margin:0 0 12px;font:600 13px var(--mono);text-transform:uppercase;letter-spacing:1px;color:var(--mut)}
+button.b,label.b{display:inline-flex;align-items:center;gap:6px;background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:7px 12px;font:600 13px system-ui,"Segoe UI",sans-serif;cursor:pointer}
+button.b:hover,label.b:hover{border-color:var(--acc)}
+button.p{background:var(--acc);color:#04140e;border-color:var(--acc)}
+button.p:hover{filter:brightness(1.1)}
+button.s{padding:3px 8px;font-size:12px}
+input,select,textarea{width:100%;background:#0a0f15;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:13px var(--mono)}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--acc2)}
+textarea{min-height:170px;resize:vertical}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.step{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px}
+.step.drag{opacity:.4}.step.over{border-color:var(--acc)}
+.step .hd{display:flex;align-items:center;gap:6px;cursor:grab}
+.step .hd b{flex:1;font-family:var(--mono);font-size:13px}
+.num{background:var(--acc);color:#04140e;border-radius:50%;width:22px;height:22px;display:grid;place-items:center;font:700 11px var(--mono)}
+.prm{display:grid;gap:6px;margin-top:8px}
+.prm label{font-size:12px;color:var(--mut)}
+.bar{display:flex;flex-wrap:wrap;gap:4px;align-items:center;font:12px var(--mono);margin-bottom:12px}
+.chip{background:#0a2a20;color:var(--acc);border:1px solid #1a5a44;border-radius:20px;padding:3px 10px}
+.arr{color:var(--mut)}
+.drop{border:2px dashed var(--line);border-radius:var(--r);padding:22px;text-align:center;color:var(--mut);cursor:pointer}
+.drop.over{border-color:var(--acc);color:var(--acc)}
+.msg{padding:8px 12px;border-radius:8px;font-size:13px;margin-top:10px;display:none}
+.msg.err{display:block;background:#2a0f17;color:var(--err);border:1px solid #5a1a2a}
+.msg.ok{display:block;background:#0a2a20;color:var(--acc);border:1px solid #1a5a44}
+.msg.warn{display:block;background:#2a220a;color:var(--warn);border:1px solid #5a4a1a}
+progress{width:100%;height:6px;accent-color:var(--acc);display:none;margin-top:10px}
+.hash{font:11px var(--mono);color:var(--mut);word-break:break-all;margin-top:8px}
+.hist li{font:12px var(--mono);color:var(--mut);padding:4px 0;border-bottom:1px solid var(--line);list-style:none}
+.hist{padding:0;margin:0;max-height:260px;overflow:auto}
+.help h3{color:var(--acc);font-size:15px;margin:18px 0 6px}
+.help code{background:#0a0f15;padding:1px 5px;border-radius:4px;font-family:var(--mono)}
+.chk{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--mut)}.chk input{width:auto}
+</style>
+</head>
+<body>
+<header><h1>Cifra<span>Chain</span></h1><small>100% no navegador · offline · sem servidor</small></header>
+<nav>
+  <button class="on" data-t="enc">🔒 Encriptar</button>
+  <button data-t="dec">🔓 Decriptar</button>
+  <button data-t="prof">📦 Perfis</button>
+  <button data-t="help">❓ Ajuda</button>
+</nav>
+<main>
+<!-- Editor de cadeia (compartilhado entre Encriptar/Decriptar) -->
+<div class="grid" id="work">
+  <aside>
+    <div class="card">
+      <h2>Cadeia de cifras</h2>
+      <div class="row" style="margin-bottom:10px">
+        <select id="addSel" style="flex:1"></select>
+        <button class="b p" id="addBtn">+ Adicionar</button>
+      </div>
+      <div id="steps"></div>
+      <div class="row"><button class="b s" id="clearBtn">Limpar tudo</button></div>
+    </div>
+    <div class="card"><h2>Histórico local</h2><ul class="hist" id="hist"></ul>
+      <div class="row" style="margin-top:8px"><button class="b s" id="histClr">Limpar histórico</button></div></div>
+  </aside>
+  <section>
+    <div class="card">
+      <h2 id="opTitle">Encriptar</h2>
+      <div class="bar" id="bar"></div>
+      <div class="drop" id="drop">Arraste um arquivo aqui ou clique para escolher<br><small>(sem arquivo = modo texto)</small>
+        <input type="file" id="file" hidden></div>
+      <div id="fileInfo" class="hash"></div>
+      <div class="row" style="margin:10px 0"><button class="b s" id="fileClr" style="display:none">Remover arquivo (voltar ao modo texto)</button></div>
+      <div id="textMode">
+        <textarea id="inTxt" placeholder="Digite o texto de entrada..."></textarea>
+        <label class="chk" style="margin-top:6px"><input type="checkbox" id="b64io" checked> Representar dados binários de texto como Base64 automático</label>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="b p" id="runBtn">▶ Executar</button>
+        <button class="b" id="pkgBtn">📦 Exportar pacote de descriptografia</button>
+      </div>
+      <progress id="prog" max="100"></progress>
+      <div class="msg" id="msg"></div>
+    </div>
+    <div class="card">
+      <h2>Saída</h2>
+      <textarea id="outTxt" readonly placeholder="O resultado aparece aqui..."></textarea>
+      <div class="row" style="margin-top:8px">
+        <button class="b" id="copyBtn">📋 Copiar</button>
+        <button class="b" id="dlBtn">⬇ Baixar resultado</button>
+      </div>
+      <div class="hash" id="hashes"></div>
+    </div>
+  </section>
+</div>
+
+<div class="tab" id="prof">
+  <div class="grid">
+    <div class="card">
+      <h2>Exportar configuração</h2>
+      <div class="prm">
+        <label>Nome do perfil</label><input id="pName" value="Meu perfil">
+        <label>Autor</label><input id="pAuthor" placeholder="opcional">
+        <label class="chk"><input type="checkbox" id="pKeys" checked> Incluir chaves/senhas</label>
+        <label>Senha mestre (recomendado — protege as chaves com AES-GCM)</label><input id="pMaster" type="password">
+      </div>
+      <div class="row" style="margin-top:12px"><button class="b p" id="expBtn">⬇ Exportar perfil .json</button></div>
+      <div class="msg" id="pmsg"></div>
+    </div>
+    <div class="card">
+      <h2>Importar configuração ou pacote</h2>
+      <div class="prm">
+        <label>Senha mestre (se o perfil tiver)</label><input id="iMaster" type="password">
+        <label class="b" style="justify-content:center">📂 Escolher .json<input type="file" id="impFile" accept=".json,application/json" hidden></label>
+      </div>
+      <p style="color:var(--mut);font-size:13px">Pacotes de descriptografia restauram a cadeia, carregam os dados criptografados na aba Decriptar e verificam a integridade (SHA-256) após decriptar.</p>
+      <div class="msg" id="imsg"></div>
+    </div>
+  </div>
+  <div class="card"><h2>Pré-visualização do JSON</h2><textarea id="pPrev" readonly></textarea></div>
+</div>
+
+<div class="tab help" id="help"><div class="card">
+<h3>Como funciona</h3>
+<p>Monte uma cadeia de cifras na coluna esquerda. Em <b>Encriptar</b>, as etapas são aplicadas de cima para baixo. Em <b>Decriptar</b>, a mesma cadeia é desfeita em ordem inversa. Reordene arrastando as etapas ou com ▲▼.</p>
+<h3>Modos</h3>
+<p><b>Texto</b>: sem arquivo selecionado. Com a opção “Base64 automático”, a saída binária é mostrada em Base64 (e a entrada de decriptação é lida como Base64). <b>Arquivo</b>: escolha/arraste qualquer arquivo; o resultado é baixado.</p>
+<h3>AES-GCM / AES-CBC</h3>
+<p>Chave de 256 bits derivada da senha via PBKDF2-SHA256. Salt (16 bytes) e IV são gerados aleatoriamente a cada encriptação e gravados no início da saída — você só precisa da senha. Use 🎲 para gerar senhas fortes.</p>
+<h3>Compartilhamento</h3>
+<p>1) Usuário A encripta e vai em <b>Perfis</b> → exporta com senha mestre. 2) Envia o perfil + arquivo (ou o <b>pacote de descriptografia</b>, que junta tudo num único .json). 3) Usuário B importa com a senha mestre, vai em Decriptar e clica em Executar.</p>
+<h3>Observações</h3>
+<p>Morse e Bacon só aceitam letras/dígitos e retornam maiúsculas (não são totalmente reversíveis para binário). XOR/RC4/César/Vigenère são cifras didáticas — para segurança real use AES-GCM.</p>
+</div></div>
+</main>
+
+<script>
+"use strict";
+/* ================= utilidades de bytes ================= */
+const te=new TextEncoder(), td=new TextDecoder();
+const U={
+  b2s:b=>td.decode(b), s2b:s=>te.encode(s),
+  b64e(b){let s="";for(let i=0;i<b.length;i+=0x8000)s+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000));return btoa(s)},
+  b64d(s){s=s.replace(/\s+/g,"");const r=atob(s),o=new Uint8Array(r.length);for(let i=0;i<r.length;i++)o[i]=r.charCodeAt(i);return o},
+  hexe:b=>Array.from(b,x=>x.toString(16).padStart(2,"0")).join(""),
+  hexd(s){s=s.replace(/\s+/g,"");if(s.length%2||/[^0-9a-f]/i.test(s))throw Error("Hex inválido");const o=new Uint8Array(s.length/2);for(let i=0;i<o.length;i++)o[i]=parseInt(s.substr(i*2,2),16);return o},
+  cat(...a){const o=new Uint8Array(a.reduce((n,x)=>n+x.length,0));let p=0;for(const x of a){o.set(x,p);p+=x.length}return o},
+  rnd:n=>crypto.getRandomValues(new Uint8Array(n)),
+  async sha(b){return U.hexe(new Uint8Array(await crypto.subtle.digest("SHA-256",b)))},
+  pass(){const c="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*-_";return Array.from(U.rnd(24),x=>c[x%c.length]).join("")},
+  key(fmt,s){
+    if(!String(s??"").trim())throw Error("Chave vazia");
+    const k=fmt==="hex"?U.hexd(s):fmt==="base64"?U.b64d(s):U.s2b(s);
+    if(!k.length)throw Error("A chave não pode estar vazia");
+    return k;
+  }
+};
+
+/* ================= módulo cifras/ ================= */
+async function deriveKey(pw,salt,iter,name){
+  if(!pw)throw Error("Senha obrigatória para "+name);
+  const rounds=Number.parseInt(iter,10);
+  if(!Number.isSafeInteger(rounds)||rounds<1000||rounds>5000000)throw Error("Use entre 1.000 e 5.000.000 iterações PBKDF2.");
+  const base=await crypto.subtle.importKey("raw",U.s2b(pw),"PBKDF2",false,["deriveKey"]);
+  return crypto.subtle.deriveKey({name:"PBKDF2",salt,iterations:rounds,hash:"SHA-256"},base,{name,length:256},false,["encrypt","decrypt"]);
+}
+const shiftL=(b,f)=>b.map(c=>c>=65&&c<=90?65+f(c-65):c>=97&&c<=122?97+f(c-97):c);
+const mod=(a,n)=>((a%n)+n)%n;
+function rc4(key,data){const S=new Uint8Array(256).map((_,i)=>i);let j=0;for(let i=0;i<256;i++){j=(j+S[i]+key[i%key.length])&255;[S[i],S[j]]=[S[j],S[i]]}let i=0;j=0;const o=new Uint8Array(data.length);for(let k=0;k<data.length;k++){i=(i+1)&255;j=(j+S[i])&255;[S[i],S[j]]=[S[j],S[i]];o[k]=data[k]^S[(S[i]+S[j])&255]}return o}
+const MORSE={A:".-",B:"-...",C:"-.-.",D:"-..",E:".",F:"..-.",G:"--.",H:"....",I:"..",J:".---",K:"-.-",L:".-..",M:"--",N:"-.",O:"---",P:".--.",Q:"--.-",R:".-.",S:"...",T:"-",U:"..-",V:"...-",W:".--",X:"-..-",Y:"-.--",Z:"--..",0:"-----",1:".----",2:"..---",3:"...--",4:"....-",5:".....",6:"-....",7:"--...",8:"---..",9:"----.",".":".-.-.-",",":"--..--","?":"..--..","/":"-..-.","@":".--.-."};
+const RMORSE=Object.fromEntries(Object.entries(MORSE).map(([k,v])=>[v,k]));
+async function stream(b,ctor){const s=new Blob([b]).stream().pipeThrough(new ctor("gzip"));return new Uint8Array(await new Response(s).arrayBuffer())}
+const fmtSel={type:"select",opts:["texto","hex","base64"]};
+
+/* Cada cifra: nome, ícone, params, enc(bytes,p), dec(bytes,p). Parâmetros secret:true são protegidos no export. */
+const CIPHERS={
+  aesgcm:{n:"AES-GCM 256",i:"🛡",p:{senha:{secret:true,gen:1},iteracoes:{def:"200000"}},
+    async enc(b,p){const s=U.rnd(16),iv=U.rnd(12),k=await deriveKey(p.senha,s,p.iteracoes,"AES-GCM");return U.cat(s,iv,new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv},k,b)))},
+    async dec(b,p){if(b.length<44)throw Error("Dados AES-GCM curtos demais");const k=await deriveKey(p.senha,b.slice(0,16),p.iteracoes,"AES-GCM");try{return new Uint8Array(await crypto.subtle.decrypt({name:"AES-GCM",iv:b.slice(16,28)},k,b.slice(28)))}catch{throw Error("AES-GCM: senha incorreta ou dados corrompidos")}}},
+  aescbc:{n:"AES-CBC 256",i:"🔐",p:{senha:{secret:true,gen:1},iteracoes:{def:"200000"}},
+    async enc(b,p){const s=U.rnd(16),iv=U.rnd(16),k=await deriveKey(p.senha,s,p.iteracoes,"AES-CBC");return U.cat(s,iv,new Uint8Array(await crypto.subtle.encrypt({name:"AES-CBC",iv},k,b)))},
+    async dec(b,p){if(b.length<48)throw Error("Dados AES-CBC curtos demais");const k=await deriveKey(p.senha,b.slice(0,16),p.iteracoes,"AES-CBC");try{return new Uint8Array(await crypto.subtle.decrypt({name:"AES-CBC",iv:b.slice(16,32)},k,b.slice(32)))}catch{throw Error("AES-CBC: senha incorreta ou dados corrompidos")}}},
+  xor:{n:"XOR",i:"⊕",p:{chave:{secret:true,gen:1},formato:fmtSel},
+    enc(b,p){const k=U.key(p.formato,p.chave);return b.map((x,i)=>x^k[i%k.length])},dec(b,p){return this.enc(b,p)}},
+  rc4:{n:"RC4",i:"🌀",p:{chave:{secret:true,gen:1},formato:fmtSel},
+    enc(b,p){return rc4(U.key(p.formato,p.chave),b)},dec(b,p){return rc4(U.key(p.formato,p.chave),b)}},
+  base64:{n:"Base64",i:"🔤",p:{},enc:b=>U.s2b(U.b64e(b)),dec(b){try{return U.b64d(U.b2s(b))}catch{throw Error("Base64 inválido")}}},
+  hex:{n:"Hex",i:"#",p:{},enc:b=>U.s2b(U.hexe(b)),dec:b=>U.hexd(U.b2s(b))},
+  url:{n:"URL encode",i:"🔗",p:{},enc:b=>U.s2b(encodeURIComponent(U.b2s(b))),dec:b=>U.s2b(decodeURIComponent(U.b2s(b)))},
+  caesar:{n:"César / ROT13",i:"🏛",p:{deslocamento:{def:"13"}},
+    enc(b,p){const n=Number.parseInt(p.deslocamento,10);if(!Number.isFinite(n))throw Error("Deslocamento inválido");return shiftL(b,c=>mod(c+n,26))},
+    dec(b,p){const n=Number.parseInt(p.deslocamento,10);if(!Number.isFinite(n))throw Error("Deslocamento inválido");return shiftL(b,c=>mod(c-n,26))}},
+  vigenere:{n:"Vigenère",i:"📜",p:{chave:{secret:true}},
+    _r(b,p,s){const k=(p.chave||"").toUpperCase().replace(/[^A-Z]/g,"");if(!k)throw Error("Vigenère: chave precisa ter letras");let j=0;return shiftL(b,c=>mod(c+s*(k.charCodeAt(j++%k.length)-65),26))},
+    enc(b,p){return this._r(b,p,1)},dec(b,p){return this._r(b,p,-1)}},
+  atbash:{n:"Atbash",i:"🔁",p:{},enc:b=>shiftL(b,c=>25-c),dec:b=>shiftL(b,c=>25-c)},
+  morse:{n:"Morse (texto)",i:"📡",p:{},
+    enc(b){return U.s2b(U.b2s(b).toUpperCase().split(" ").map(w=>[...w].map(c=>{if(!MORSE[c])throw Error("Morse: caractere não suportado '"+c+"'");return MORSE[c]}).join(" ")).join(" / "))},
+    dec(b){return U.s2b(U.b2s(b).trim().split(" / ").map(w=>w.split(" ").map(c=>RMORSE[c]??"?").join("")).join(" "))}},
+  bacon:{n:"Bacon (texto)",i:"🥓",p:{},
+    enc(b){return U.s2b([...U.b2s(b).toUpperCase()].map(c=>c===" "?"/":/[A-Z]/.test(c)?(c.charCodeAt(0)-65).toString(2).padStart(5,"0").replace(/0/g,"A").replace(/1/g,"B"):(()=>{throw Error("Bacon: só letras e espaço")})()).join(" "))},
+    dec(b){return U.s2b(U.b2s(b).trim().split(" ").map(g=>g==="/"?" ":String.fromCharCode(65+parseInt(g.replace(/A/g,"0").replace(/B/g,"1"),2))).join(""))}},
+  gzip:{n:"Compressão GZIP",i:"🗜",p:{},enc:b=>stream(b,CompressionStream),async dec(b){try{return await stream(b,DecompressionStream)}catch{throw Error("GZIP: dados não comprimidos")}}}
+};
+
+/* ================= estado ================= */
+let chain=[{id:"aesgcm",p:{senha:"",iteracoes:"200000"}},{id:"base64",p:{}}];
+let mode="enc", file=null, outBytes=null, outName="resultado.bin", inHash=null, expectHash=null;
+const $=s=>document.querySelector(s);
+const newStep=id=>{const p={};for(const[k,d]of Object.entries(CIPHERS[id].p))p[k]=d.def??(d.opts?d.opts[0]:"");return{id,p}};
+
+/* ================= módulo ui/ ================= */
+function msg(el,t,c){el.className="msg "+c;el.textContent=t}
+function renderBar(){$("#bar").innerHTML=(chain.length?(mode==="enc"?chain:[...chain].reverse()).map(s=>`<span class="chip">${CIPHERS[s.id].i} ${CIPHERS[s.id].n}</span>`).join('<span class="arr">→</span>'):'<span class="arr">cadeia vazia</span>')+(mode==="dec"?' <span class="arr">(ordem inversa)</span>':"")}
+function render(){
+  const box=$("#steps");box.innerHTML="";
+  chain.forEach((s,i)=>{
+    const c=CIPHERS[s.id],d=document.createElement("div");d.className="step";d.draggable=true;
+    d.innerHTML=`<div class="hd"><span class="num">${i+1}</span><b>${c.i} ${c.n}</b>
+      <button class="b s" data-a="up" title="Subir">▲</button><button class="b s" data-a="down" title="Descer">▼</button>
+      <button class="b s" data-a="dup" title="Duplicar">⧉</button><button class="b s" data-a="del" title="Remover">✕</button></div>`;
+    const prm=document.createElement("div");prm.className="prm";
+    for(const[k,def]of Object.entries(c.p)){
+      const l=document.createElement("label");l.textContent=k+(def.secret?" 🔑":"");prm.append(l);
+      let inp;
+      if(def.type==="select"){inp=document.createElement("select");def.opts.forEach(o=>inp.add(new Option(o,o)))}
+      else{inp=document.createElement("input");if(def.secret)inp.type="password"}
+      inp.value=s.p[k]??"";inp.oninput=()=>{s.p[k]=inp.value};
+      if(def.gen){const r=document.createElement("div");r.className="row";inp.style.flex="1";const g=document.createElement("button");g.className="b s";g.textContent="🎲";g.title="Gerar chave forte";
+        g.onclick=()=>{s.p[k]=s.p.formato==="hex"?U.hexe(U.rnd(32)):s.p.formato==="base64"?U.b64e(U.rnd(32)):U.pass();inp.value=s.p[k];inp.type="text"};
+        const e=document.createElement("button");e.className="b s";e.textContent="👁";e.onclick=()=>inp.type=inp.type==="password"?"text":"password";
+        r.append(inp,g,e);prm.append(r)}else prm.append(inp);
+    }
+    if(Object.keys(c.p).length)d.append(prm);
+    d.querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>{const a=b.dataset.a;
+      if(a==="up"&&i>0)[chain[i-1],chain[i]]=[chain[i],chain[i-1]];
+      if(a==="down"&&i<chain.length-1)[chain[i+1],chain[i]]=[chain[i],chain[i+1]];
+      if(a==="dup")chain.splice(i+1,0,JSON.parse(JSON.stringify(s)));
+      if(a==="del")chain.splice(i,1);render()});
+    d.ondragstart=e=>{e.dataTransfer.setData("text/plain",i);d.classList.add("drag")};
+    d.ondragend=()=>d.classList.remove("drag");
+    d.ondragover=e=>{e.preventDefault();d.classList.add("over")};d.ondragleave=()=>d.classList.remove("over");
+    d.ondrop=e=>{
+      e.preventDefault();d.classList.remove("over");
+      if(!e.dataTransfer.types.includes("text/plain"))return;
+      const from=Number(e.dataTransfer.getData("text/plain"));
+      if(!Number.isInteger(from)||from<0||from>=chain.length||from===i)return;
+      const [m]=chain.splice(from,1);chain.splice(i,0,m);render();
+    };
+    box.append(d);
+  });
+  renderBar();
+}
+for(const[k,c]of Object.entries(CIPHERS))$("#addSel").add(new Option(c.i+" "+c.n,k));
+$("#addBtn").onclick=()=>{chain.push(newStep($("#addSel").value));render()};
+$("#clearBtn").onclick=()=>{if(confirm("Limpar todas as etapas?")){chain=[];render()}};
+
+/* abas */
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("on",x===b));
+  const t=b.dataset.t;document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x.id===t));
+  $("#work").style.display=(t==="enc"||t==="dec")?"":"none";
+  if(t==="enc"||t==="dec"){if(mode!==t){mode=t;expectHash=t==="dec"?expectHash:null}$("#opTitle").textContent=t==="enc"?"Encriptar":"Decriptar";$("#pkgBtn").style.display=t==="enc"?"":"none";$("#inTxt").placeholder=t==="enc"?"Digite o texto a encriptar...":"Cole o texto encriptado...";renderBar()}
+  if(t==="prof")previewProfile();
+});
+
+/* arquivo / drag-and-drop */
+const drop=$("#drop");
+drop.onclick=e=>{if(e.target!==$("#file"))$("#file").click()};
+drop.ondragover=e=>{e.preventDefault();drop.classList.add("over")};drop.ondragleave=()=>drop.classList.remove("over");
+drop.ondrop=e=>{e.preventDefault();drop.classList.remove("over");if(e.dataTransfer.files[0])setFile(e.dataTransfer.files[0])};
+$("#file").onchange=e=>e.target.files[0]&&setFile(e.target.files[0]);
+function setFile(f){file=f;$("#textMode").style.display=f?"none":"";$("#fileClr").style.display=f?"":"none";
+  $("#fileInfo").textContent=f?`📄 Modo arquivo: ${f.name} (${(f.size/1024).toFixed(1)} KB)`:"";}
+$("#fileClr").onclick=()=>{setFile(null);$("#file").value=""};
+
+/* execução do pipeline */
+let running=false;
+async function run(){
+  const m=$("#msg"),pr=$("#prog"),runBtn=$("#runBtn");m.className="msg";
+  if(running)return;
+  if(!chain.length)return msg(m,"Adicione ao menos uma etapa à cadeia.","err");
+  running=true;runBtn.disabled=true;runBtn.textContent="⏳ Processando…";
+  outBytes=null;$("#outTxt").value="";$("#hashes").textContent="";
+  try{
+    pr.style.display="block";pr.value=0;
+    let b;
+    if(file){b=new Uint8Array(await file.arrayBuffer())}
+    else{const t=$("#inTxt").value;if(!t)throw Error("Entrada vazia.");b=(mode==="dec"&&$("#b64io").checked)?(()=>{try{return U.b64d(t)}catch{throw Error("Entrada não é Base64 válido (desmarque 'Base64 automático' se necessário).")}})():U.s2b(t)}
+    inHash=await U.sha(b);
+    const steps=mode==="enc"?chain:[...chain].reverse();
+    for(let i=0;i<steps.length;i++){
+      const s=steps[i],c=CIPHERS[s.id];
+      try{b=await c[mode](b,s.p)}catch(e){throw Error(`Etapa "${c.n}": ${e.message}`)}
+      pr.value=(i+1)/steps.length*100;await new Promise(r=>setTimeout(r));
+    }
+    outBytes=b;const oh=await U.sha(b);
+    if(file){outName=mode==="enc"?file.name+".enc":file.name.replace(/\.enc$/,"")||"decriptado.bin";$("#outTxt").value=`Arquivo pronto: ${outName} (${b.length} bytes). Clique em "Baixar resultado".`}
+    else $("#outTxt").value=(mode==="enc"&&$("#b64io").checked)?U.b64e(b):U.b2s(b),outName=mode==="enc"?"texto.enc.txt":"texto.txt";
+    let h=`SHA-256 entrada: ${inHash}\nSHA-256 saída:   ${oh}`;
+    if(mode==="dec"&&expectHash){h+=oh===expectHash?"\n✅ Integridade verificada: igual ao original":"\n❌ Hash difere do original!"}
+    $("#hashes").innerText=h;
+    msg(m,`Concluído: ${steps.length} etapa(s), ${b.length} bytes.`,"ok");
+    addHist(`${mode==="enc"?"🔒":"🔓"} ${file?file.name:"texto"} · ${steps.map(s=>CIPHERS[s.id].n).join("→")}`);
+  }catch(e){msg(m,e?.message||"Falha inesperada ao processar os dados.","err")}finally{
+    running=false;runBtn.disabled=false;runBtn.textContent="▶ Executar";
+    setTimeout(()=>pr.style.display="none",400);
+  }
+}
+$("#runBtn").onclick=run;
+function download(data,name,type="application/octet-stream"){
+  const url=URL.createObjectURL(new Blob([data],{type})),a=document.createElement("a");
+  a.href=url;a.download=name;a.hidden=true;document.body.append(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+$("#dlBtn").onclick=()=>outBytes?download(outBytes,outName):msg($("#msg"),"Nada para baixar ainda.","warn");
+$("#copyBtn").onclick=async()=>{
+  const output=$("#outTxt");
+  if(!output.value)return msg($("#msg"),"Não há resultado para copiar.","warn");
+  try{await navigator.clipboard.writeText(output.value);msg($("#msg"),"Copiado!","ok")}
+  catch{output.focus();output.select();const copied=document.execCommand("copy");msg($("#msg"),copied?"Copiado!":"Selecione e copie o resultado manualmente.",copied?"ok":"warn")}
+};
+
+/* histórico localStorage (sem guardar chaves) */
+const HK="cifrachain-hist";
+function readHist(){
+  try{const value=JSON.parse(localStorage.getItem(HK)||"[]");return Array.isArray(value)?value.filter(x=>typeof x==="string").slice(0,30):[]}
+  catch{return []}
+}
+function addHist(t){
+  try{const h=readHist();h.unshift(new Date().toLocaleString("pt-BR")+" — "+t);localStorage.setItem(HK,JSON.stringify(h.slice(0,30)))}catch{}
+  showHist();
+}
+function showHist(){
+  const list=$("#hist");list.replaceChildren();const entries=readHist();
+  if(!entries.length){const li=document.createElement("li");li.textContent="Sem operações.";list.append(li);return}
+  for(const entry of entries){const li=document.createElement("li");li.textContent=entry;list.append(li)}
+}
+$("#histClr").onclick=()=>{try{localStorage.removeItem(HK)}catch{}showHist()};
+
+/* ================= módulo perfis/ ================= */
+async function buildProfile(){
+  const incl=$("#pKeys").checked,master=$("#pMaster").value;
+  const steps=chain.map(s=>{const p={},sec={};for(const[k,v]of Object.entries(s.p))(CIPHERS[s.id].p[k]?.secret?sec:p)[k]=v;return{cifra:s.id,params:p,_sec:sec}});
+  const prof={formato:"cifrachain-perfil",versao:1,nome:$("#pName").value,autor:$("#pAuthor").value,data:new Date().toISOString(),chavesProtegidas:false,chavesIncluidas:incl,cadeia:[]};
+  if(incl&&master){
+    const salt=U.rnd(16),iv=U.rnd(12),k=await deriveKey(master,salt,200000,"AES-GCM");
+    const ct=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv},k,U.s2b(JSON.stringify(steps.map(s=>s._sec)))));
+    prof.chavesProtegidas=true;prof.segredos={alg:"AES-GCM/PBKDF2-SHA256",iteracoes:200000,salt:U.b64e(salt),iv:U.b64e(iv),dados:U.b64e(ct)};
+  }
+  prof.cadeia=steps.map(s=>({cifra:s.cifra,params:incl&&!master?{...s.params,...s._sec}:s.params}));
+  return prof;
+}
+async function previewProfile(){try{$("#pPrev").value=JSON.stringify(await buildProfile(),null,2)}catch(e){$("#pPrev").value=e.message}}
+["#pName","#pAuthor","#pKeys","#pMaster"].forEach(s=>$(s).addEventListener("change",previewProfile));
+$("#expBtn").onclick=async()=>{const p=await buildProfile();download(JSON.stringify(p,null,2),(p.nome||"perfil").replace(/\W+/g,"-")+"-cripto.json","application/json");
+  msg($("#pmsg"),p.chavesProtegidas?"Perfil exportado com chaves protegidas pela senha mestre.":p.chavesIncluidas?"⚠ Perfil exportado com chaves em texto claro.":"Perfil exportado sem chaves.",p.chavesProtegidas||!p.chavesIncluidas?"ok":"warn")};
+
+async function loadProfile(prof,master){
+  if(prof.formato!=="cifrachain-perfil"||!Array.isArray(prof.cadeia))throw Error("Arquivo não é um perfil CifraChain válido.");
+  let secs=null;
+  if(prof.chavesProtegidas){
+    if(!master)throw Error("Este perfil exige a senha mestre.");
+    const s=prof.segredos,k=await deriveKey(master,U.b64d(s.salt),s.iteracoes,"AES-GCM");
+    try{secs=JSON.parse(U.b2s(new Uint8Array(await crypto.subtle.decrypt({name:"AES-GCM",iv:U.b64d(s.iv)},k,U.b64d(s.dados)))))}catch{throw Error("Senha mestre incorreta.")}
+  }
+  chain=prof.cadeia.map((s,i)=>{if(!CIPHERS[s.cifra])throw Error("Cifra desconhecida: "+s.cifra);const st=newStep(s.cifra);Object.assign(st.p,s.params,secs?.[i]||{});return st});
+  render();
+}
+$("#impFile").onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;const im=$("#imsg");
+  try{
+    const j=JSON.parse(await f.text());
+    if(j.formato==="cifrachain-pacote"){
+      await loadProfile(j.perfil,$("#iMaster").value);
+      const bytes=U.b64d(j.dados);expectHash=j.sha256Original;
+      file=new File([bytes],j.nomeArquivo||"dados.enc");setFile(file);
+      document.querySelector('nav [data-t="dec"]').click();
+      msg($("#msg"),"Pacote carregado. Clique em Executar para decriptar.","ok");
+    }else{expectHash=null;await loadProfile(j,$("#iMaster").value);msg(im,`Perfil "${j.nome}" importado (${chain.length} etapas).`,"ok")}
+  }catch(err){msg(im,err.message,"err")}
+  e.target.value="";
+};
+/* pacote de descriptografia: perfil + dados encriptados + hash do original */
+$("#pkgBtn").onclick=async()=>{
+  const m=$("#msg");
+  if(!outBytes||mode!=="enc")return msg(m,"Execute uma encriptação primeiro.","warn");
+  if(!$("#pMaster").value&&!confirm("Sem senha mestre (aba Perfis), as chaves irão em texto claro no pacote. Continuar?"))return;
+  const pk={formato:"cifrachain-pacote",versao:1,perfil:await buildProfile(),nomeArquivo:outName,sha256Original:inHash,dados:U.b64e(outBytes)};
+  download(JSON.stringify(pk),outName+".pacote.json","application/json");msg(m,"Pacote exportado.","ok");
+};
+
+render();showHist();
+</script>
+</body>
+</html>
